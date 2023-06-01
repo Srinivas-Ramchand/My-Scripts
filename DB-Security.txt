@@ -1,0 +1,85 @@
+Server ROLES :
+				
+Bulkadmin
+Dbcreator
+Diskadmin
+ProcessAdmin
+Public
+Securityadmin
+ServerAdmin
+Setupadmin
+Sysadmin
+
+
+DB Roles :
+
+Db_owner
+db_securityadmin
+db_accessadmin
+db_backupoperator	
+db_ddladmin
+db_datawriter
+db_datareader
+db_denydatawriter
+db_denydatareader
+
+
+
+New features of sql server 2016?
+
+* Query Store
+* Live Query Statistics
+* Native JSON Support
+* Always Encrypted
+* Row Level Security
+* PolyBase into SQL Server
+* Column Store
+* Data Stretch to MS Azure
+* Replication supports memory optimized tables and replication support enabled for Azure Sql databases.
+* AES Encryption for Endpoints - AES is the default encryption from Sql 2016 and before it was RC4
+* 3 synchronous comit replicas , where as in 2014 it was 2 
+
+Sql 2019 New Features :
+
+1. Intelligent Query Processing Enhancements
+2. Accelerated Database Recovery (ADR)
+3. AlwaysEncrypted with secure enclaves
+4 .Memory-optimized Tempdb metadata
+5. Query Store custom capture policies
+6. Verbose truncation warnings
+7. Resumable index build
+8. Data virtualization with Polybase
+9.Last actual execution plan DMF
+10 .Up to Five Synchronous Replica Pairs for Availability Groups
+11. Column store index enhancments
+
+
+
+
+SQL Server 2022 new features :
+
+*Parameter Sensitive Plan Optimization
+*Query Store enhancements
+*Link to Azure SQL Managed Instance 
+*Contained Availability Groups
+*Azure Synapse Link for SQL 
+*Multi-Write Replication
+*Azure Active Directory authentication
+*Azure Purview integration
+*SQL Server Ledger
+*AWS S3 storage integration
+*SQL Server 2022 on Linux
+
+Windows Server Versions & Editions ::
+
+Windows Server 2008 R2
+Windows Server 2012
+Windows Server 2012 R2
+Windows Server 2016
+Windows Server 2019[18]
+Windows Server 2022
+
+Windows Server Standard
+Windows Server Datacenter
+
+

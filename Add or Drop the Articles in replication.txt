@@ -1,0 +1,31 @@
+/*Disable the below properties*/
+
+EXEC sp_changepublication
+@publication = N'ADV-PUB',
+@property = N'allow_anonymous',
+@value = 'FALSE'
+GO
+
+EXEC sp_changepublication
+@publication = N'ADV-PUB',
+@property = N'immediate_sync',
+@value = 'FALSE'
+GO
+
+3 ) Add new Article from the publication properties
+
+4 ) start the snapshotagent
+
+5) start the log reader agent (if it is not running continuosly)
+
+/*Enable the below properties*/
+
+EXEC sp_changepublication
+@publication = N'ADV-PUB',
+@property = N'immediate_sync',
+@value = 'TRUE'
+ 
+EXEC sp_changepublication
+@publication = N'ADV-PUB',
+@property = N'allow_anonymous',
+@value = 'TRUE'
