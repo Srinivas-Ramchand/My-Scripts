@@ -1,0 +1,54 @@
+SELECT TOP 1 
+
+  qs.total_worker_time / qs.execution_count AS avg_cpu_time,
+
+  qs.execution_count,
+
+  SUBSTRING(qt.text, (qs.statement_start_offset/2)+1, 
+
+              ((CASE qs.statement_end_offset
+
+                WHEN -1 THEN DATALENGTH(qt.text)
+
+                ELSE qs.statement_end_offset
+
+              END - qs.statement_start_offset)/2) + 1) AS query_text,
+
+  er.session_id,
+
+  er.status,
+
+  er.cpu_time,
+
+  er.total_elapsed_time,
+
+  es.host_name,
+
+  es.program_name,
+
+  es.login_name,
+
+  es.last_request_start_time,
+
+  es.last_request_end_time
+
+FROM 
+
+  sys.dm_exec_query_stats AS qs
+
+  CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS qt
+
+  INNER JOIN sys.dm_exec_requests AS er ON qs.sql_handle = er.sql_handle
+
+  INNER JOIN sys.dm_exec_sessions AS es ON er.session_id = es.session_id
+
+WHERE 
+
+  qs.total_worker_time > 0
+
+  AND es.is_user_process = 1
+
+ORDER BY 
+
+  avg_cpu_time DESC;
+

@@ -1,0 +1,96 @@
+CREATE TABLE Failed_Jobs (
+    [Status] [varchar](Max) NOT NULL,
+    [Job Name] [varchar](Max) NULL,
+    [Step ID] [varchar](1000) NULL,
+    [Step Name] [varchar](Max) NULL, -- Increased the length to 100
+    [Start Date Time] [varchar](30) NULL,
+    [Message] [nvarchar](Max) NULL
+)
+
+GO
+
+WITH LatestJobExecution AS (
+    SELECT
+        sj.name AS [Job Name],
+        sjs.step_id AS [Step ID],
+        sjs.step_name AS [Step Name],
+        sjh.run_status AS [Run Status],
+        CAST(REPLACE(CONVERT(varchar, CONVERT(datetime, CONVERT(varchar, sjh.run_date)), 102), '.', '-') + ' ' +
+            SUBSTRING(RIGHT('000000' + CONVERT(varchar, sjh.run_time), 6), 1, 2) + ':' +
+            SUBSTRING(RIGHT('000000' + CONVERT(varchar, sjh.run_time), 6), 3, 2) + ':' +
+            SUBSTRING(RIGHT('000000' + CONVERT(varchar, sjh.run_time), 6), 5, 2) AS datetime) AS [Start Date Time],
+        sjh.message AS [Message],
+        ROW_NUMBER() OVER (PARTITION BY sj.name, sjs.step_id ORDER BY sjh.run_date DESC, sjh.run_time DESC) AS RowNum
+    FROM
+        sysjobs sj
+        JOIN sysjobsteps sjs ON sj.job_id = sjs.job_id
+        JOIN sysjobhistory sjh ON sj.job_id = sjh.job_id AND sjs.step_id = sjh.step_id
+    WHERE
+        CAST(sjh.run_date AS float) * 1000000 + sjh.run_time > CAST(CONVERT(varchar(8), GETDATE() - 1, 112) AS float) * 1000000 + 70000 -- yesterday at 7am
+),
+FailedJobs AS (
+    SELECT
+        [Job Name],
+        [Step ID],
+        [Step Name],
+        [Run Status],
+        [Start Date Time],
+        [Message]
+    FROM
+        LatestJobExecution
+    WHERE
+        RowNum = 1 AND [Run Status] <> 1
+)
+INSERT INTO Failed_Jobs ([Status], [Job Name], [Step ID], [Step Name], [Start Date Time], [Message])
+SELECT
+    'FAILED' AS Status,
+    [Job Name],
+    [Step ID],
+    [Step Name],
+    CONVERT(varchar, [Start Date Time], 120) AS [Start Date Time],
+    [Message]
+FROM
+    FailedJobs;
+
+
+
+DECLARE @cnt INT
+SELECT @cnt = COUNT(1) FROM Failed_Jobs
+
+IF (@cnt > 0)
+BEGIN
+    DECLARE @strsubject VARCHAR(100)
+    SELECT @strsubject = 'Check the following failed jobs on ' + @@SERVERNAME
+
+    DECLARE @tableHTML NVARCHAR(MAX)
+    SET @tableHTML =
+        N'<H1>Failed Jobs Listing - ' + @@SERVERNAME + '</H1>' +
+        N'<table border="1">' +
+        N'<tr><th>Status</th><th>Job Name</th>' +
+        N'<th>Step ID</th><th>Step Name</th><th>Start Date</th>' +
+        N'<th>Message</th></tr>' +
+        CAST((
+            SELECT
+                td = [Status], '',
+                td = [Job Name], '',
+                td = [Step ID], '',
+                td = [Step Name], '',
+                td = [Start Date Time], '',
+                td = [Message]
+            FROM
+                Failed_Jobs
+            FOR XML PATH('tr'), TYPE
+        ) AS NVARCHAR(MAX)) +
+        N'</table>'
+
+    EXEC msdb.dbo.sp_send_dbmail
+        @recipients = 'musicandra@gmail.com',
+        @subject = @strsubject,
+        @body = @tableHTML,
+        @body_format = 'HTML',
+        @profile_name = 'outlook'
+END
+
+Go
+
+DROP TABLE Failed_Jobs
