@@ -1,0 +1,32 @@
+-- Check if the default trace is enabled.
+SELECT is_enabled
+FROM sys.traces
+WHERE is_default = 1;
+
+-- If the default trace is enabled, find out who set the database offline.
+DECLARE @traceid INT, @status INT;
+SELECT @traceid = id
+FROM sys.traces
+WHERE is_default = 1;
+
+SELECT
+    DatabaseName,
+    DatabaseID,
+    NTUserName,
+    HostName,
+    ApplicationName,
+    StartTime
+FROM fn_trace_gettable(CONVERT(VARCHAR(150), (SELECT TOP 1 path FROM sys.traces WHERE is_default = 1)), DEFAULT)
+WHERE EventClass = 164 -- Database Offline
+  AND DatabaseID = DB_ID('YourDatabaseName')
+ORDER BY StartTime DESC;
+
+
+
+
+
+Schema changes History
+
+Event vwr
+
+Sql error log

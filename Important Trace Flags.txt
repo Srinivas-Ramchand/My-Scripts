@@ -1,0 +1,27 @@
+IMPORTANT TRACE FLAGS
+
+TRACE FLAG 1117
+
+TF 1117 forces all data files on each database to grow uniformly. Whenever data file grows uniformly, I/O will be better, and it improves the speed of read and write operations in SQL Server.
+
+Trace Flag 1117: Tempdb database data file grows with all files at the same time so each of them remains on an equal size.
+
+Microsoft SQL Server 2016 and upper versions this trace flag is implemented as a default setting for the tempdb database.
+
+
+TRACE FLAG 3226
+
+If you notice the SQL error log there would be lots of backup success messages which gets saved. Sometimes we really don’t need all the success messages for backup. 
+For example, consider the log shipping scenario. Hence, we have TF 3226 which avoids writing success messages into your error log.
+
+
+TRACE FLAG 2371
+
+Whenever huge volume of changes happens on SQL tables, the internal process automatically calls statistics to update all the changes.
+ During this time your query must wait to build the new execution plan. If you enable TF 2371, the query need not wait till statistics update gets completed.
+
+
+TRACE FLAG 902 : Skips Script upgrade after patching
+
+TRACE FLAG 3459 : Disbale parallel Redo in always on
+
