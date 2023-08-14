@@ -1,0 +1,10 @@
+DECLARE @ProcedureName NVARCHAR(128) = 'StoredProcedureName';
+
+SELECT
+  dest.text AS [ProcedureDefinition],
+  deps.last_execution_time AS [LastExecutionTime],
+  deps.execution_count AS [ExecutionCount]
+FROM sys.dm_exec_procedure_stats AS deps
+CROSS APPLY sys.dm_exec_sql_text(deps.sql_handle) AS dest
+WHERE OBJECT_NAME(dest.objectid, dest.dbid) = @ProcedureName
+ORDER BY deps.last_execution_time DESC;

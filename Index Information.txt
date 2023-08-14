@@ -1,0 +1,48 @@
+Few points about indexes
+
+1. **Indexes**:
+- B-tree structures are commonly used for creating indexes.
+
+2. **Two Types of Indexes**:
+- There are clustered indexes and non-clustered indexes.
+
+3. **Levels of Indexes**:
+- Indexes typically have three levels: root, intermediate, and leaf levels.
+- Data is stored in the leaf level.
+
+4. **Intermediate Index Level**:
+- The intermediate level contains keys that guide the search to the leaf level.
+
+5. **Heap Tables**:
+- A table without a clustered index is referred to as a heap.
+
+6. **Creating Clustered Index**:
+- To create a clustered index, a primary key is not mandatory, but it's often a common practice to use the primary key as the clustered index key.
+
+7. **Automatic Creation of Clustered Index**:
+- If a primary key is defined on a table, a clustered index is created by default, but you can choose to create a non-clustered primary key.
+
+8. **Non-Clustered Index Creation**:
+- Non-clustered indexes can exist alongside clustered indexes.
+
+9. **Composite Index**:
+- An index created on multiple columns is called a composite index.
+
+10. **Covering Index**:
+- A covering index includes all the columns required to satisfy a query, thus avoiding a need for additional lookups.
+
+11. **RID Lookup**:
+- To avoid RID (Row Identifier) lookup, you would create a clustered index on the table.
+
+12. **Number of Indexes**:
+- There can be one clustered index per table.
+- The number of non-clustered indexes that can be created on a table varies by database system but is generally more than 999.
+
+13. **Clustered Index in WHERE Condition**:
+- If a query uses a key column from a clustered index in the WHERE condition, it may perform a clustered index seek.
+
+14. **Query Optimizer and Undefined Column**:
+- If an index is not defined on a column used in a query, the query optimizer may suggest a clustered index scan.
+
+15. **Non-Clustered Index Seek with WHERE Condition**:
+- Using non-clustered index (NI) columns in the SELECT list and in the WHERE condition may lead to a non-clustered index seek.
