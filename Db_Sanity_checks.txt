@@ -1,0 +1,35 @@
+SET NOCOUNT ON
+DECLARE @crdate DATETIME, @hr VARCHAR(50), @min VARCHAR(5)
+SELECT @crdate=crdate FROM sysdatabases WHERE NAME='tempdb'
+SELECT @hr=(DATEDIFF (mi,@crdate, GETDATE()))/60
+IF ((DATEDIFF (mi, @crdate, GETDATE()))/60)=0
+SELECT @min=(DATEDIFF (mi, @crdate, GETDATE()))
+ELSE
+SELECT @min=(DATEDIFF (mi, @crdate, GETDATE()))-((DATEDIFF(mi, @crdate, GETDATE()))/60)*60
+PRINT 'SQL Server"' + CONVERT(VARCHAR(50),SERVERPROPERTY('SERVERNAME'))+'" is Online for the past '+@hr+'hours &'+@min+' minutes'
+IF NOT EXISTS (SELECT 1 FROM master.dbo.sysprocesses WHERE program_name=N'SQLAgent- Generic Refresher')
+BEGIN
+PRINT 'SQL Server is running but SQL Server Agent <<NOT>> running'
+END
+ELSE BEGIN
+PRINT 'SQL Server and SQL Server Agent both are running'
+END
+select @@SERVERNAME as servername, getdate() as Checktime
+
+Select Sqlserver_start_time from sys.dm_os_sys_info
+go
+SELECT SERVERPROPERTY('ComputerNamnePhysicalNetBIOS') as Runnin_Instance_Name
+go
+select name,state_desc from sys.databases
+go
+select *from sys.dm_os_cluster_nodes
+go
+SELECT DB_NAME(database_id) AS 'DatabaseName'
+,mirroring_role_desc
+,mirroring_state_desc
+,mirroring_partner_instance
+,mirroring_connection_timeout,
+CASE WHEN mirroring_safety_level=1 THEN 'High Performance'WHEN mirroring_safety_level=2 THEN 'High Safety' ELSE NULL END AS MirrorSafety
+FROM
+sys.database_mirroring WHERE mirroring_guid IS NOT NULL
+
