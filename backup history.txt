@@ -1,0 +1,16 @@
+DECLARE @dbname sysname
+SET @dbname = NULL
+SELECT qt.user_name AS [User],
+qt.database_name AS [Database],
+qt.server_name AS [Server],
+qt.backup_size,
+CAST(backup_size / 1048576 as decimal(10,2)) as [backupsizemb],
+qt.backup_start_date AS [Backup Started],
+qt.backup_finish_date AS [Backup Finished]
+,CAST((CAST(DATEDIFF(s, qt.backup_start_date, qt.backup_finish_date) AS int))/3600 AS varchar) + 'hours'
++ CAST((CAST(DATEDIFF(s, qt.backup_start_date, qt.backup_finish_date) AS int))/60 AS varchar)+ 'minutes'
++ CAST((CAST(DATEDIFF(s, qt.backup_start_date, qt.backup_finish_date) AS int))%60 AS varchar)+ 'seconds'
+AS [Total Time]
+FROM msdb.dbo.backupset qt
+WHERE qt.database_name IN (SELECT name FROM master.dbo.sysdatabases)
+ORDER BY qt.database_name

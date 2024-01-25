@@ -1,0 +1,168 @@
+;WITH history AS ( -- convenience view of sysjobhistory presenting start/end dates as DATETIME
+  SELECT 
+    job_id
+  , step_name  -- take step_name directly rather than looking it up later - step_id is mutable...
+  , step_id AS StepSeqNo  -- ...so let's call it what it is!
+  , CAST(
+      CAST(run_date AS VARCHAR(8)) 
+        + ' ' + SUBSTRING(RIGHT('000000' + CAST(run_time AS VARCHAR(6)), 6), 1, 2)
+        + ':' + SUBSTRING(RIGHT('000000' + CAST(run_time AS VARCHAR(6)), 6), 3, 2)
+        + ':' + SUBSTRING(RIGHT('000000' + CAST(run_time AS VARCHAR(6)), 6), 5, 2)
+    AS DATETIME) AS StartTime
+  , DATEADD (
+      SECOND
+    , SUBSTRING(RIGHT('000000' + CAST(run_duration AS VARCHAR(6)), 6), 1, 2) * 3600
+      + SUBSTRING(RIGHT('000000' + CAST(run_duration AS VARCHAR(6)), 6), 3, 2) * 60
+      + SUBSTRING(RIGHT('000000' + CAST(run_duration AS VARCHAR(6)), 6), 5, 2)
+    , CAST(
+        CAST(run_date AS VARCHAR(8)) 
+          + ' ' + SUBSTRING(RIGHT('000000' + CAST(run_time AS VARCHAR(6)), 6), 1, 2)
+          + ':' + SUBSTRING(RIGHT('000000' + CAST(run_time AS VARCHAR(6)), 6), 3, 2)
+          + ':' + SUBSTRING(RIGHT('000000' + CAST(run_time AS VARCHAR(6)), 6), 5, 2)
+      AS DATETIME)
+    ) AS EndTime
+  , run_status
+  FROM msdb.dbo.sysjobhistory
+  WHERE run_date > CAST(CONVERT(VARCHAR(8), GETDATE() - 28, 112) AS INT)
+), running AS ( -- information about running jobs  
+  SELECT 
+    ja.job_id
+  , ja.start_execution_date AS JobStartTime
+  -- Determine current step. This isn't reported directly, only the *previous* 
+  -- step - so we infer the current step based on what happened in the previous.
+  , CASE       
+      -- no previous step? This is step 1
+      WHEN ja.last_executed_step_id IS NULL THEN 1
+      -- previous step succeeded? on_success_action 3 = "go to next step"; 4 = "go to step n"
+      WHEN h.run_status = 1 AND js.on_success_action = 3 THEN ja.last_executed_step_id + 1
+      WHEN h.run_status = 1 AND js.on_success_action = 4 THEN js.on_success_step_id
+      -- previous step failed
+      WHEN h.run_status = 0 AND js.on_fail_action = 3 THEN ja.last_executed_step_id + 1
+      WHEN h.run_status = 0 AND js.on_fail_action = 4 THEN js.on_fail_step_id
+      -- previous step was retried
+      WHEN h.run_status = 2 THEN ja.last_executed_step_id
+    END AS CurrentStep
+  , COALESCE(h.EndTime, ja.start_execution_date) AS CurrentStepStartTime
+  FROM msdb.dbo.sysjobactivity ja
+    LEFT JOIN history h 
+      ON ja.job_id = h.job_id
+      AND ja.last_executed_step_id = h.StepSeqNo
+      AND h.StartTime >= ja.start_execution_date
+    LEFT JOIN msdb.dbo.sysjobsteps js 
+      ON js.job_id = ja.job_id
+      AND js.step_id = ja.last_executed_step_id  
+        -- A step_id based join should be OK here because set of steps stored 
+        -- for the job (hopefully!) match the set of steps in the running job.
+  WHERE ja.start_execution_date IS NOT NULL
+  AND ja.job_history_id IS NULL
+  AND ja.session_id = (
+    SELECT MAX(session_id)
+    FROM msdb.dbo.syssessions
+  )
+), jobs AS (  -- all overarching job run periods with a unique RunId
+  -- finished jobs
+  SELECT 
+    job_id
+  , ROW_NUMBER() OVER (
+      ORDER BY StartTime
+    ) AS RunId
+  , StartTime AS JobStartTime
+  , EndTime AS JobEndTime
+  , run_status AS JobStatus
+  FROM history 
+  WHERE StepSeqNo = 0
+ 
+  UNION ALL
+ 
+  -- running jobs
+  SELECT 
+    job_id
+  , -ROW_NUMBER() OVER (
+      ORDER BY JobStartTime
+    ) AS RunId -- number down from zero to avoid collisions with completed RunId
+  , JobStartTime
+  , '29991231'
+  , -1
+  FROM running
+), steps AS ( -- all individual step runs with start and end dates
+  -- finished steps
+  SELECT 
+    job_id
+  , step_name
+  , StartTime AS StepStartTime
+  , EndTime AS StepEndTime
+  , run_status AS StepStatus
+  FROM history 
+  WHERE StepSeqNo > 0
+ 
+  UNION ALL
+ 
+  -- running steps  
+  SELECT 
+    r.job_id
+  , js.step_name
+  , r.CurrentStepStartTime
+  , '29991231'
+  , -1
+  FROM running r
+    INNER JOIN msdb.dbo.sysjobsteps js -- join to get step_name for running steps
+      ON js.job_id = r.job_id
+      AND js.step_id = r.CurrentStep
+)
+-- put it all together
+SELECT 
+  sj.name AS JobName
+, j.RunId AS JobRunId
+, ROW_NUMBER() OVER (
+    PARTITION BY j.RunId
+    ORDER BY s.StepStartTime
+  ) AS StepSeqNo
+, s.step_name AS StepName
+, s.StepStartTime
+, CASE WHEN s.StepEndTime <= GETDATE() THEN s.StepEndTime END StepEndTime
+, DATEADD(
+    SECOND
+  , DATEDIFF(
+      SECOND
+    , s.StepStartTime
+    , CASE 
+        WHEN s.StepEndTime > GETDATE() THEN GETDATE() 
+        ELSE s.StepEndTime 
+      END
+    )
+  , CAST('00:00:00' AS TIME(0))
+  ) AS StepDuration
+, CASE s.StepStatus
+    WHEN -1 THEN 'Running'
+    WHEN 1 THEN 'Success'
+    WHEN 0 THEN 'Failed'
+    WHEN 3 THEN 'Cancelled'
+    ELSE CAST(s.StepStatus AS VARCHAR)
+  END AS StepStatus
+FROM jobs j
+  INNER JOIN steps s 
+    ON s.job_id = j.job_id
+    AND s.StepStartTime BETWEEN j.JobStartTime AND j.JobEndTime
+  INNER JOIN msdb.dbo.sysjobs sj ON sj.job_id  = j.job_id
+
+
+/* *********************************************************************************************************** */
+
+;WITH jobListCTE as
+(
+SELECT j.name as job_name,
+msdb.dbo.agent_datetime(run_date, run_time) AS run_datetime,
+RIGHT('000000' + CONVERT(varchar(6), run_duration), 6) AS run_duration,
+message
+FROM msdb.dbo.sysjobhistory h
+INNER JOIN msdb.dbo.sysjobs j ON h.job_id = j.job_id
+WHERE h.step_name = '(Job outcome)'
+)
+SELECT job_name as [JobStep],
+run_datetime as [StartDateTime],
+SUBSTRING(run_duration, 1, 2) + ':' +
+SUBSTRING(run_duration, 3, 2) + ':' +
+SUBSTRING(run_duration, 5, 2) as [Duration],
+message
+FROM jobListCTE
+ORDER BY run_datetime DESC, job_name;
